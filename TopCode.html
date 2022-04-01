@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>TopCodes Example</title>
+
+  <style>
+    /* Style for all buttons */
+    .button1 {
+      background-color: #4caf50;
+      /* Green */
+      border: none;
+      color: white;
+      padding: 15px 32px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+    }
+
+    .button2 {
+      background-color: #4caf50;
+      /* Green */
+      border: none;
+      color: white;
+      padding: 15px 32px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+    }
+
+    .button3 {
+      background-color: #4caf50;
+      /* Green */
+      border: none;
+      color: white;
+      padding: 15px 32px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+    }
+  </style>
+</head>
+
+<body onload="">
+  <canvas id="video-canvas" style="display: none" width="800" height="600" style="background: #ddd"></canvas>
+  <br />
+  <button id="camera_btn" class="button1" style="display: none" onclick="TopCodes.startStopVideoScan('video-canvas')">
+    Start Camera!
+  </button>
+
+  <button id="port_btn" class="button2" onclick="requestPortAccess()" style="display: inline">
+    Select Port!
+  </button>
+  <button id="send_btn" class="button3" style="display: none" onclick="sendCode()">
+    Send Data!
+  </button>
+  <script src="topcodes.js"></script>
+  <script>
+
+    var sendData; //Function placeholder
+    var mainjson; //JSON object placeholder
+                    
+    //navigator.serial, Ανοίγουμε τρόπο σύνδεσης διαμέσου του υπολογιστή και του bluetooth module.
+    //serial.requestPort(), Επιλέγεις με ποια πόρτα θα συνδεθέι ο υπολογιστής
+    async function requestPortAccess() {
+      navigator.serial
+        .requestPort()
+        .then((port) => {
+          // Connect to `port` or add it to the list of available ports.
+          //The open() method of the SerialPort interface returns.
+          //a Promise that resolves when the port is opened.
+          //By default the port is opened with 8 data bits, 1 stop bit and no parity checking.
+          //Baudrate, Πόσες φορές θα αλλάξει το σήμα ανά δευτερόλεπτο.
+                  
+                port.open({ baudRate: 9600 })
+                .then((x) => {
+              //display & hide buttons
+              document.getElementById("video-canvas").style.display = "inline";
+              document.getElementById("camera_btn").style.display = "inline";
+              document.getElementById("port_btn").style.display = "none";
+              
+              //Set the `sendData` function to the corresponding port
+              sendData = async function (data) {
+                
+
+
+                for(let i =0; i < data.length;i++)
+                {
+
+                  var sendDataFunction = async function(){
+                    const writer = port.writable.getWriter();
+                    //Construct the array with the numbers
+                    const d = new Uint8Array(1);
+                    d[0] = data[i];
+                    //Write the numbers to the bluetooth serial
+                    await writer.write(d);
+                    //Close the writer
+                    writer.releaseLock();
+                    console.log(data[i])
+                  };
+
+                  setTimeout(sendDataFunction,i*1000+1000);
+                  
+                }
+              };
+            })
+            .catch((e) => {
+              alert("ERROR! Connecting to the selected COM port");
+              //user didn't select a port
+              console.log(e);
+            });
+        })
+        .catch((e) => {
+          alert("ERROR! Requesting ports from PC");
+          console.log(e);
+        });
+    }
+    async function sendCode() {
+      var json = mainjson;
+      //parse and send to serial
+      var codes = json.topcodes;
+      var parsedCodes = []; //array of number
+      for (var i = 0; i < codes.length; i++) {
+        //codes[0].code--> Το κωδικό απο το πρώτο json object.
+        parsedCodes.push(codes[i].code);
+      }
+      var reversedCodes = parsedCodes;
+      console.log(codes)
+      //Εάν το πρώτο block δεν είναι 'start' κάνουμε reverse το array γιατί τα έχει διαβάσει ανάποδα.
+      if(codes[0].code != 115) //Έλεγχος αν το πρώτο είναι με ID 115(start)
+      reversedCodes=parsedCodes.reverse();
+      
+
+      // parsedCodes = [653,809,805.....];
+      console.log(reversedCodes);
+      sendData(reversedCodes)
+        .then((x) => {
+          alert("Data sent to the robot successfully!");
+        })
+        .catch((x) => {
+          alert("There was an error while trying to send data to the robot!");
+          console.log(x);
+        });
+    }
+    
+    // register a callback function with the TopCode library
+    TopCodes.setVideoFrameCallback("video-canvas", function (jsonString) {
+      //display & hide buttons
+      var c = document.getElementById("camera_btn");
+      c.style.display = "none";
+      c = document.getElementById("send_btn");
+      c.style.display = "inline";
+
+      // convert the JSON string to an object
+      var json = JSON.parse(jsonString);
+      //console.log(jsonString);
+      if (json.topcodes.length > 0) {
+        mainjson = json;
+      }
+      // get the list of topcodes from the JSON object
+      var topcodes = json.topcodes;
+
+      // obtain a drawing context from the <canvas>
+      var ctx = document.querySelector("#video-canvas").getContext("2d");
+
+      // draw a circle over the top of each TopCode
+      ctx.fillStyle = "rgba(255, 0, 0, 0.3)"; // very translucent red
+      for (i = 0; i < topcodes.length; i++) {
+        ctx.beginPath();
+        ctx.arc(
+          topcodes[i].x,
+          topcodes[i].y,
+          topcodes[i].radius,
+          0,
+          Math.PI * 2,
+          true
+        );
+        ctx.fill();
+      }
+    });
+  </script>
+</body>
+
+</html>
